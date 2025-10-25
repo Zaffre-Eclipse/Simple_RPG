@@ -7,6 +7,7 @@ SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "CRYPTID: Red Archon"
 
+
 class IntroView(arcade.View):
     def __init__(self):
         super().__init__()
@@ -48,8 +49,21 @@ class IntroView(arcade.View):
             "YOU WILL PRESS Z ON YOUR KEYBOARD TO CONTINUE."
         ]
 
+        # --- Intro sound setup ---
+        sound_path = os.path.join(BASE_DIR, "Sound", "Intro.wav")
+        if os.path.exists(sound_path):
+            self.intro_sound = arcade.load_sound(sound_path)
+        else:
+            self.intro_sound = None
+        self.sound_player = None
+
     def on_show(self):
         arcade.set_background_color(arcade.color.BLACK)
+
+        # Play intro sound in a continuous loop
+        if self.intro_sound:
+            # Play the sound object and store the SoundPlayer
+            self.sound_player = self.intro_sound.play(looping=True)
 
     def on_draw(self):
         self.clear()
@@ -82,10 +96,17 @@ class IntroView(arcade.View):
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and self.text_alpha >= 255:
+            # Stop the looping intro sound immediately when leaving intro
+            if self.sound_player:
+                # Stop the SoundPlayer instance
+                self.sound_player.stop()
+                self.sound_player = None
+
             player = Character()
             maze, connections = create_maze_data()
             main_view = MainScreen(player, maze, connections)
             self.window.show_view(main_view)
+
 
 
 # --- Maze Setup ---
