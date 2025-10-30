@@ -1,5 +1,4 @@
 import arcade
-import os
 from Character import Character
 from MainScreen import MainScreen
 
@@ -7,39 +6,32 @@ SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "CRYPTID: Red Archon"
 
-
 class IntroView(arcade.View):
     def __init__(self):
         super().__init__()
+        # Load the image as a sprite
+        self.image_sprite = arcade.Sprite("Simple_RPG/Art/PAWN.png")
 
-        # --- Load PAWN sprite properly ---
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        pawn_path = os.path.join(BASE_DIR, "Art", "PAWN.png")
-
-        texture = arcade.load_texture(pawn_path)
-        self.image_sprite = arcade.Sprite(pawn_path)
-
-        # Scale down proportionally (slimmer look)
-        scale_factor = 0.7
-        self.image_sprite.width = texture.width * scale_factor
-        self.image_sprite.height = texture.height * scale_factor
-
-        # Center it
+        # Position near bottom, under text
         self.image_sprite.center_x = SCREEN_WIDTH / 2
-        self.image_sprite.center_y = 100
+        self.image_sprite.center_y = 100   # adjust vertical position
+        self.image_sprite.width = 150       # adjust size
+        self.image_sprite.height = 175      # adjust size
 
-        # Sprite list
         self.sprite_list = arcade.SpriteList()
         self.sprite_list.append(self.image_sprite)
 
-        # --- Fade variables ---
-        self.bg_alpha = 0
-        self.text_alpha = 0
-        self.fade_speed = 2
-        self.text_delay = 60  # frames before text fades in
+        # Fade variables
+        self.bg_alpha = 0       # for image fade
+        self.text_alpha = 0     # for text fade
+        self.fade_speed = 3
+        self.text_delay = 60    # frames before text fades in
         self.frame_count = 0
+        
+        self.is_fading_out = False  # Tracks if the intro is currently fading out
+        self.fade_out_alpha = 0     # For the overlay opacity during fade-out
 
-        # --- Intro text ---
+        # Text lines
         self.lines = [
             "GREETINGS.",
             "WELCOME TO YOUR FIRST DAY OF TRAINING.",
@@ -48,22 +40,14 @@ class IntroView(arcade.View):
             "YOU WILL BE TAKEN THROUGH THIS TESTING FACILITY.",
             "YOU WILL PRESS Z ON YOUR KEYBOARD TO CONTINUE."
         ]
-
-        # --- Intro sound setup ---
-        sound_path = os.path.join(BASE_DIR, "Sound", "Intro.wav")
-        if os.path.exists(sound_path):
-            self.intro_sound = arcade.load_sound(sound_path)
-        else:
-            self.intro_sound = None
-        self.sound_player = None
+        
+        # Load intro/exploration music
+        self.sound = arcade.load_sound("Simple_RPG/Music/Forest_Carnival.wav")
+        # Play and loop intro/exploration music
+        arcade.play_sound(self.sound, loop=True)
 
     def on_show(self):
         arcade.set_background_color(arcade.color.BLACK)
-
-        # Play intro sound in a continuous loop
-        if self.intro_sound:
-            # Play the sound object and store the SoundPlayer
-            self.sound_player = self.intro_sound.play(looping=True)
 
     def on_draw(self):
         self.clear()
@@ -84,32 +68,39 @@ class IntroView(arcade.View):
                     18 if i == 0 else 16,
                     anchor_x="center"
                 )
+        
+        # If fading out, draw a black overlay that grows more opaque
+        if self.is_fading_out:
+            arcade.draw_lbwh_rectangle_filled(
+                0, SCREEN_WIDTH, SCREEN_HEIGHT, 0,
+                (0, 0, 0, int(self.fade_out_alpha))
+            )
 
     def on_update(self, delta_time):
         self.frame_count += 1
-        # Fade in image first
-        if self.bg_alpha < 255:
-            self.bg_alpha = min(255, self.bg_alpha + self.fade_speed)
-        # Fade in text after delay
-        elif self.frame_count > self.text_delay and self.text_alpha < 255:
-            self.text_alpha = min(255, self.text_alpha + self.fade_speed)
+        # --- Fade in sequence ---
+        if not self.is_fading_out:
+            if self.bg_alpha < 255:
+                self.bg_alpha = min(255, self.bg_alpha + self.fade_speed)
+            elif self.frame_count > self.text_delay and self.text_alpha < 255:
+                self.text_alpha = min(255, self.text_alpha + self.fade_speed)
+        
+        # --- Fade out sequence ---
+        elif self.is_fading_out:
+            self.fade_out_alpha += 200 * delta_time
+            if self.fade_out_alpha >= 255:
+                self.fade_out_alpha = 255
+                # Once fade is complete, transition to MainScreen
+                player = Character()
+                maze, connections = create_maze_data()
+                main_view = MainScreen(player, maze, connections)
+                self.window.show_view(main_view)
 
     def on_key_press(self, key, modifiers):
-        if key == arcade.key.Z and self.text_alpha >= 255:
-            # Stop the looping intro sound immediately when leaving intro
-            if self.sound_player:
-                # Stop the SoundPlayer instance
-                self.sound_player.stop()
-                self.sound_player = None
+        if key == arcade.key.Z and self.text_alpha >= 255 and not self.is_fading_out:
+            self.is_fading_out = True
 
-            player = Character()
-            maze, connections = create_maze_data()
-            main_view = MainScreen(player, maze, connections)
-            self.window.show_view(main_view)
-
-
-
-# --- Maze Setup ---
+# --- Maze setup (same as before) ---
 def create_maze_data():
     connections = {
         "A": (False, ("Start", "Room 2")),
@@ -137,27 +128,28 @@ def create_maze_data():
     }
 
     maze = {
-        "Start": ([("Room 2", "Left", "A"), ("Room 6", "Forward", "G"), ("Room 1", "Right", "F")], False),
-        "Room 1": ([("Room 5", "Left", "E"), ("Start", "Forward", "F")], False),
-        "Room 2": ([("Room 3", "Forward", "B"), ("Start", "Right", "A"), ("Room 4", "Backward", "C")], False),
-        "Room 3": ([("Room 13", "Forward", "Q"), ("Room 6", "Right", "H"), ("Room 2", "Backward", "B")], False),
-        "Room 4": ([("Room 2", "Left", "C"), ("Room 5", "Right", "D"), ("Room 15", "Backward", "U")], False),
-        "Room 5": ([("Room 4", "Left", "D"), ("Room 1", "Forward", "E"), ("Room 7", "Right", "J")], False),
-        "Room 6": ([("Room 3", "Left", "H"), ("Room 8", "Right", "I"), ("Start", "Backward", "G")], False),
-        "Room 7": ([("Room 5", "Left", "J"), ("Room 16", "Forward", "V")], False),
-        "Room 8": ([("Room 6", "Left", "I"), ("Room 12", "Forward", "O"), ("Room 11", "Right", "M"), ("Room 9", "Backward", "K")], False),
-        "Room 9": ([("Room 8", "Forward", "K"), ("Room 10", "Right", "L")], False),
-        "Room 10": ([("Room 9", "Backward", "L")], False),
-        "Room 11": ([("Room 12", "Forward", "N"), ("Room 8", "Backward", "M")], False),
-        "Room 12": ([("End", "Left", "P"), ("Room 11", "Right", "N"), ("Room 8", "Backward", "O")], False),
-        "Room 13": ([("End", "Forward", "R"), ("Room 14", "Right", "S"), ("Room 3", "Backward", "Q")], False),
-        "Room 14": ([("Room 13", "Left", "S"), ("End", "Forward", "T")], False),
-        "Room 15": ([("Room 4", "Right", "U")], False),
-        "Room 16": ([("Room 7", "Backward", "V")], False),
-        "End": ([("Room 13", "Left", "R"), ("Room 12", "Right", "P"), ("Room 14", "Backward", "T")], False)
+        "Start": ([("Room 2", "Left", "A"), ("Room 6", "Forward", "G"), ("Room 1", "Right", "F")], False, False),
+        "Room 1": ([("Room 5", "Left", "E"), ("Start", "Forward", "F")], False, False),
+        "Room 2": ([("Room 3", "Forward", "B"), ("Start", "Right", "A"), ("Room 4", "Backward", "C")], False, False),
+        "Room 3": ([("Room 13", "Forward", "Q"), ("Room 6", "Right", "H"), ("Room 2", "Backward", "B")], False, False),
+        "Room 4": ([("Room 2", "Left", "C"), ("Room 5", "Right", "D"), ("Room 15", "Backward", "U")], False, False),
+        "Room 5": ([("Room 4", "Left", "D"), ("Room 1", "Forward", "E"), ("Room 7", "Right", "J")], False, False),
+        "Room 6": ([("Room 3", "Left", "H"), ("Room 8", "Right", "I"), ("Start", "Backward", "G")], False, False),
+        "Room 7": ([("Room 5", "Left", "J"), ("Room 16", "Forward", "V")], False, False),
+        "Room 8": ([("Room 6", "Left", "I"), ("Room 12", "Forward", "O"), ("Room 11", "Right", "M"), ("Room 9", "Backward", "K")], False, False),
+        "Room 9": ([("Room 8", "Forward", "K"), ("Room 10", "Right", "L")], False, False),
+        "Room 10": ([("Room 9", "Backward", "L")], False, False),
+        "Room 11": ([("Room 12", "Forward", "N"), ("Room 8", "Backward", "M")], False, False),
+        "Room 12": ([("End", "Left", "P"), ("Room 11", "Right", "N"), ("Room 8", "Backward", "O")], False, False),
+        "Room 13": ([("End", "Forward", "R"), ("Room 14", "Right", "S"), ("Room 3", "Backward", "Q")], False, False),
+        "Room 14": ([("Room 13", "Left", "S"), ("End", "Forward", "T")], False, False),
+        "Room 15": ([("Room 4", "Right", "U")], False, False),
+        "Room 16": ([("Room 7", "Backward", "V")], False, False),
+        "End": ([("Room 13", "Left", "R"), ("Room 12", "Right", "P"), ("Room 14", "Backward", "T")], False, False)
     }
 
     return maze, connections
+
 
 
 if __name__ == "__main__":
