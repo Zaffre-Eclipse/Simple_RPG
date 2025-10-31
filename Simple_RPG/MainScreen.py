@@ -206,34 +206,53 @@ class MainScreen(arcade.View):
         return sprite, frames
 
     def draw_enemy_hp_bar(self, bar_width=100, bar_height=10):
-        """Draw a blue HP bar above the enemy sprite."""
         enemy = self.current_enemy
         sprite = self.fight_enemy
 
-        if not enemy or not sprite:
+        if enemy is None or sprite is None:
             return
 
-        # --- Calculate fill ratio ---
-        fill_ratio = max(enemy.hp / enemy.max_hp, 0)
+        fill_ratio = max(self.current_enemy_display_hp / enemy.max_hp, 0)
         filled_width = bar_width * fill_ratio
 
-        # --- Position bar above sprite ---
         cx = sprite.center_x
-        cy = sprite.center_y + sprite.height / 2 - 160
+        cy = sprite.center_y + sprite.height / 2 + 15
 
-        # --- Outer bar (dark gray) ---
         left = cx - bar_width / 2
         right = cx + bar_width / 2
         bottom = cy - bar_height / 2
         top = cy + bar_height / 2
+
+        # Draw background bar
         arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, arcade.color.DARK_GRAY)
-
-        # --- Filled portion (blue) ---
-        right_filled = left + filled_width
-        arcade.draw_lrbt_rectangle_filled(left, right_filled, bottom, top, arcade.color.BLUE)
-
-        # --- Outline ---
+        # Draw filled portion
+        arcade.draw_lrbt_rectangle_filled(left, left + filled_width, bottom, top, arcade.color.BLUE)
+        # Outline
         arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, arcade.color.WHITE, 2)
+
+    
+    def attack_enemy(self):
+        weapon_name, weapon_bonus = self.character.equipment["Weapon"]
+        damage = self.character.atk + weapon_bonus
+        defense = getattr(self.current_enemy, "defense", 0)  # default 0 if not defined
+        total_damage = max(0, damage - defense)
+
+        # Subtract HP from enemy
+        self.current_enemy.hp = max(0, self.current_enemy.hp - total_damage)
+
+        # Show damage popup
+        self.loot_popup_text = f"You dealt {total_damage} damage to {self.current_enemy.name}!"
+        self.loot_popup_state = "loot"
+        self.loot_popup_timer = 0.0
+        
+        # Check if enemy is defeated
+        if self.current_enemy.hp <= 0:
+            self.loot_popup_text = f"You defeated {self.current_enemy.name}!"
+            self.loot_popup_state = "loot"
+            self.loot_popup_timer = 0.0
+            self.in_fight = False  # End fight
+            self.fight_enemy.visible = False
+            self.fight_sprites = arcade.SpriteList()
 
     
     @staticmethod
@@ -557,7 +576,11 @@ class MainScreen(arcade.View):
         # Load sprite dynamically
         self.fight_enemy, self.fight_frames = self.load_enemy_sprite(self.current_enemy.name)
     
-        
+        # Reset enemy HP for a new fight
+        self.current_enemy.hp = self.current_enemy.max_hp
+        # for smooth HP bar animation
+        self.current_enemy_display_hp = self.current_enemy.hp
+            
         # Position sprite in middle
         screen_width, screen_height = self.window.get_size()
         self.fight_enemy.center_x = screen_width / 2
@@ -651,8 +674,7 @@ class MainScreen(arcade.View):
             elif key == arcade.key.ENTER:
                 selected = self.fight_buttons[self.fight_menu_index]
                 if selected == "Attack":
-                    # TODO: perform attack
-                    pass
+                    self.attack_enemy()
                 elif selected == "Items":
                     self.open_item_menu()
                     self.fight_menu_index = 0  # deselect fight buttons
@@ -756,6 +778,15 @@ class MainScreen(arcade.View):
         
         # --- Battle Fading ---     
         if self.in_fight:
+            # Smooth HP bar update
+            if self.in_fight and self.current_enemy:
+                diff = self.current_enemy_display_hp - self.current_enemy.hp
+                if abs(diff) > 0.1:  # small threshold to prevent jitter
+                    # Reduce by a fraction of the difference per frame for smoothness
+                    self.current_enemy_display_hp -= diff * min(1, 5 * delta_time)
+                else:
+                    self.current_enemy_display_hp = self.current_enemy.hp
+            
             if self.fight_alpha < 255:
                 self.fight_alpha += self.fight_fade_speed * delta_time
                 if self.fight_alpha > 255:
