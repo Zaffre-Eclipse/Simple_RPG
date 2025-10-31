@@ -5,6 +5,7 @@ from Hp_Potion import Hp_Potion
 from Mp_Potion import Mp_Potion
 from PIL import Image
 from io import BytesIO
+from Necromancer import Necromancer
 
 
 # --- Scaling and room size ---
@@ -150,49 +151,11 @@ class MainScreen(arcade.View):
         
         # cache for current room background
         self.room_texture = None
-
-
-        # --- Sprite sheet info ---
-        sheet_path = "Simple_RPG/Art/Enemies/Necromancer.png"
-        frame_width = 160
-        frame_height = 128
-        columns = 17
-        rows = 7
-
-        # Load the sheet as PIL image
-        sheet_image = Image.open(sheet_path).convert("RGBA")
-        sheet_width, sheet_height = sheet_image.size
-
-        # Store all frames as arcade.Textures
-        self.frames = []
-
-        for row in range(rows):
-            for col in range(columns):
-                # Calculate box (left, upper, right, lower)
-                left = col * frame_width
-                top = sheet_height - (row + 1) * frame_height  # top-left origin
-                right = left + frame_width
-                bottom = top + frame_height
-                frame_image = sheet_image.crop((left, top, right, bottom))
-
-                # Save to in-memory file
-                temp_file = BytesIO()
-                frame_image.save(temp_file, format="PNG")
-                temp_file.seek(0)
-
-                # Load as arcade.Texture
-                texture = arcade.load_texture(temp_file)
-                self.frames.append(texture)
-
-        # --- Create enemy sprite ---
-        self.fight_enemy = arcade.Sprite()          # assign to instance variable
-        self.fight_enemy.visible = False            # hide until fight
-        self.fight_enemy.texture = self.frames[0]   # idle = first frame
-        self.fight_enemy.center_x = self.window.width / 2
-        self.fight_enemy.center_y = self.window.height / 2
-        self.fight_enemy.scale = 3.0
+        
+        # Create an enemy list
+        self.enemies =[Necromancer()]
         self.fight_sprites = arcade.SpriteList()
-        self.fight_sprites.append(self.fight_enemy)
+
         
         # Tracks which fight button is highlighted
         self.fight_menu_index = 0
@@ -201,7 +164,78 @@ class MainScreen(arcade.View):
     
     def on_show(self):
         arcade.set_background_color(arcade.color.BLACK)
-        
+    
+    
+    def load_enemy_sprite(self, enemy_name, scale=3.0):
+        """
+        Loads an enemy sprite and splits its sprite sheet into frames.
+        Returns a tuple: (arcade.Sprite, list_of_frames)
+        """
+        sheet_path = f"Simple_RPG/Art/Enemies/{enemy_name}.png"
+        frame_width = 160
+        frame_height = 128
+        columns = 17
+        rows = 7
+
+        # Load sheet as PIL image
+        sheet_image = Image.open(sheet_path).convert("RGBA")
+        sheet_width, sheet_height = sheet_image.size
+
+        frames = []
+        for row in range(rows):
+            for col in range(columns):
+                left = col * frame_width
+                top = sheet_height - (row + 1) * frame_height
+                right = left + frame_width
+                bottom = top + frame_height
+                frame_image = sheet_image.crop((left, top, right, bottom))
+
+                temp_file = BytesIO()
+                frame_image.save(temp_file, format="PNG")
+                temp_file.seek(0)
+
+                texture = arcade.load_texture(temp_file)
+                frames.append(texture)
+
+        # Create sprite
+        sprite = arcade.Sprite()
+        sprite.texture = frames[0]
+        sprite.scale = scale
+        sprite.visible = False
+
+        return sprite, frames
+
+    def draw_enemy_hp_bar(self, bar_width=100, bar_height=10):
+        """Draw a blue HP bar above the enemy sprite."""
+        enemy = self.current_enemy
+        sprite = self.fight_enemy
+
+        if not enemy or not sprite:
+            return
+
+        # --- Calculate fill ratio ---
+        fill_ratio = max(enemy.hp / enemy.max_hp, 0)
+        filled_width = bar_width * fill_ratio
+
+        # --- Position bar above sprite ---
+        cx = sprite.center_x
+        cy = sprite.center_y + sprite.height / 2 - 160
+
+        # --- Outer bar (dark gray) ---
+        left = cx - bar_width / 2
+        right = cx + bar_width / 2
+        bottom = cy - bar_height / 2
+        top = cy + bar_height / 2
+        arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, arcade.color.DARK_GRAY)
+
+        # --- Filled portion (blue) ---
+        right_filled = left + filled_width
+        arcade.draw_lrbt_rectangle_filled(left, right_filled, bottom, top, arcade.color.BLUE)
+
+        # --- Outline ---
+        arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, arcade.color.WHITE, 2)
+
+    
     @staticmethod
     def draw_button(cx, cy, w, h, text="", highlighted=False, 
                     fill_color=arcade.color.BLACK, outline_color=arcade.color.RED, font_size=16):
@@ -321,8 +355,7 @@ class MainScreen(arcade.View):
                 cx_button = start_x + i * (box_w + spacing) + box_w / 2
                 self.draw_button(cx_button, box_center_y, box_w, box_h, option, highlighted=(i == self.menu_index))
 
-    
-    
+
     def draw_item_popup(self):
         """Draw the item popup."""
         cx = self.window.width / 2
@@ -481,6 +514,9 @@ class MainScreen(arcade.View):
                     sprite.alpha = int(self.fight_text_alpha)
                 self.fight_sprites.draw()
             
+            # Draw HP bar above Necromancer
+            self.draw_enemy_hp_bar()
+            
              # --- Draw item popup on top if active ---
             if self.popup_state == "Item":
                 self.draw_item_popup()   # Draws the Item menu above everything
@@ -514,6 +550,14 @@ class MainScreen(arcade.View):
         self.fight_alpha = 0       # fade out current room
         self.fight_text_alpha = 0
         
+        # Randomly pick an enemy
+        enemy_index = 0  # right now always 0, later random.randint(0, len(self.enemies)-1)
+        self.current_enemy = self.enemies[enemy_index]
+        
+        # Load sprite dynamically
+        self.fight_enemy, self.fight_frames = self.load_enemy_sprite(self.current_enemy.name)
+    
+        
         # Position sprite in middle
         screen_width, screen_height = self.window.get_size()
         self.fight_enemy.center_x = screen_width / 2
@@ -521,9 +565,7 @@ class MainScreen(arcade.View):
         self.fight_enemy.visible = True
         
         # Ensure sprite list contains the enemy
-        if not self.fight_sprites:
-            self.fight_sprites = arcade.SpriteList()
-            self.fight_sprites.append(self.fight_enemy)
+        self.fight_sprites.append(self.fight_enemy)
         
         # Clear bottom options
         self.popup_state = None
