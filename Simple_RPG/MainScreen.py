@@ -202,53 +202,168 @@ class MainScreen(arcade.View):
     def on_show(self):
         arcade.set_background_color(arcade.color.BLACK)
         
-    def draw_popup_item_menu(self):
-        """Draws the Item menu popup, works in overworld and battle."""
+    @staticmethod
+    def draw_button(cx, cy, w, h, text="", highlighted=False, 
+                    fill_color=arcade.color.BLACK, outline_color=arcade.color.RED, font_size=16):
+        """
+        Draw a rectangular button with optional text.
+        
+        Parameters:
+        - cx, cy: center coordinates of the button
+        - w, h: width and height
+        - text: label text (optional)
+        - highlighted: if True, outline is yellow instead of default
+        - fill_color: button fill color
+        - outline_color: outline color when not highlighted
+        - font_size: size of the text
+        """
+        if highlighted:
+            outline_color = arcade.color.YELLOW
+
+        left = cx - w / 2
+        right = cx + w / 2
+        top = cy + h / 2
+        bottom = cy - h / 2
+
+        arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, fill_color)
+        arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, outline_color, 2)
+
+        if text:
+            arcade.draw_text(text, cx, cy - 8, arcade.color.WHITE, font_size, anchor_x="center")
+
+        
+    # Inside your MainScreen class
+    def draw_status_popup(self):
+        """Draws the status popup with stats and buttons."""
+        cx = self.window.width / 2
+        cy = self.window.height / 2 + 40  # bump stats box a little higher
+        w = 400
+        h = 220
+
+        # --- Draw the main stats box ---
+        self.draw_button(cx, cy, w, h, fill_color=arcade.color.BLACK, outline_color=arcade.color.RED)
+
+        # --- Draw stats text ---
+        stats_lines = [
+            f"Name: {self.character.name}",
+            f"Status: {self.character.title}",
+            f"HP: {self.character.hp}/{self.character.max_hp}",
+            f"MP: {self.character.mp}/{self.character.max_mp}",
+            f"ATK: {self.character.atk} | DEF: {self.character.defense} | SPD: {self.character.spd}",
+        ]
+        for i, line in enumerate(stats_lines):
+            arcade.draw_text(
+                line,
+                cx,
+                cy + 70 - i * 25,
+                arcade.color.WHITE,
+                16,
+                anchor_x="center"
+            )
+
+        # --- Draw command bar under stats box ---
+        bar_w = 420
+        bar_h = 100
+        bar_cy = cy - h / 2 - bar_h / 2 - 10
+        self.draw_button(cx, bar_cy, bar_w, bar_h, fill_color=arcade.color.BLACK, outline_color=arcade.color.RED)
+
+        # --- Draw the row of buttons ---
+        num_buttons = len(self.popup_options)
+        box_w = 100
+        box_h = 60
+        spacing = 20
+        total_width = num_buttons * box_w + (num_buttons - 1) * spacing
+        start_x = cx - total_width / 2
+        box_center_y = bar_cy
+
+        for i, option in enumerate(self.popup_options):
+            cx_button = start_x + i * (box_w + spacing) + box_w / 2
+            self.draw_button(cx_button, box_center_y, box_w, box_h, option, highlighted=(i == self.menu_index))
+
+    
+    def draw_equip_popup(self):
+        """Draw the equipment popup."""
         cx = self.window.width / 2
         cy = self.window.height / 2
-        h = 220
         w = 400
+        h = 220
+
+        # Draw outer box
+        arcade.draw_lrbt_rectangle_filled(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.BLACK)
+        arcade.draw_lrbt_rectangle_outline(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.RED, 3)
+
+        # Draw equipment info
+        equip_lines = [
+            f"{self.character.equipment['Armor'][0]}: +{self.character.equipment['Armor'][1]} DEF",
+            f"{self.character.equipment['Weapon'][0]}: +{self.character.equipment['Weapon'][1]} ATK",
+        ]
+        for i, line in enumerate(equip_lines):
+            arcade.draw_text(
+                line,
+                cx,
+                cy + 40 - i * 30,
+                arcade.color.WHITE,
+                16,
+                anchor_x="center"
+            )
+
+        # Draw buttons
+        num_buttons = len(self.popup_options)
+        if num_buttons > 0:
+            box_w = 200 if num_buttons == 1 else 100
+            box_h = 60
+            spacing = 20 if num_buttons > 1 else 0
+            total_width = num_buttons * box_w + (num_buttons - 1) * spacing
+            start_x = cx - total_width / 2
+            box_center_y = cy - h / 2 + 50
+
+            for i, option in enumerate(self.popup_options):
+                cx_button = start_x + i * (box_w + spacing) + box_w / 2
+                self.draw_button(cx_button, box_center_y, box_w, box_h, option, highlighted=(i == self.menu_index))
+
+    
+    
+    def draw_item_popup(self):
+        """Draw the item popup."""
+        cx = self.window.width / 2
+        cy = self.window.height / 2
+        w = 400
+        h = 220
 
         # Outer box
         arcade.draw_lrbt_rectangle_filled(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.BLACK)
         arcade.draw_lrbt_rectangle_outline(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.RED, 3)
 
-        if self.popup_state == "Item":
-                    equip_lines = [
-                        f"{self.character.items['HP Potion'][0]}: {self.character.items['HP Potion'][1]}",
-                        f"{self.character.items['MP Potion'][0]}: {self.character.items['MP Potion'][1]}",
-                    ]
-                    for i, line in enumerate(equip_lines):
-                        arcade.draw_text(
-                            line,
-                            cx,
-                            cy + h/2 - 40 - i * 30,
-                            arcade.color.WHITE,
-                            16,
-                            anchor_x="center"
-                        )
-        
-        # Buttons
+        # Draw item counts
+        equip_lines = [
+            f"{self.character.items['HP Potion'][0]}: {self.character.items['HP Potion'][1]}",
+            f"{self.character.items['MP Potion'][0]}: {self.character.items['MP Potion'][1]}",
+        ]
+        for i, line in enumerate(equip_lines):
+            arcade.draw_text(
+                line,
+                cx,
+                cy + h/2 - 40 - i * 30,
+                arcade.color.WHITE,
+                16,
+                anchor_x="center"
+            )
+
+        # Draw buttons
         num_buttons = len(self.popup_options)
-        box_w = 200 if num_buttons == 1 else 100
-        box_h = 60
-        spacing = 20 if num_buttons > 1 else 0
-        total_width = num_buttons * box_w + (num_buttons - 1) * spacing
-        start_x = cx - total_width / 2
-        box_center_y = cy - h / 2 + 50
+        if num_buttons > 0:
+            box_w = 200 if num_buttons == 1 else 100
+            box_h = 60
+            spacing = 20 if num_buttons > 1 else 0
+            total_width = num_buttons * box_w + (num_buttons - 1) * spacing
+            start_x = cx - total_width / 2
+            box_center_y = cy - h / 2 + 50
 
-        for i, option in enumerate(self.popup_options):
-            bx_left = start_x + i * (box_w + spacing)
-            bx_right = bx_left + box_w
-            by_top = box_center_y + box_h/2
-            by_bottom = box_center_y - box_h/2
-
-            outline_color = arcade.color.YELLOW if i == self.menu_index else arcade.color.RED
-            arcade.draw_lrbt_rectangle_filled(bx_left, bx_right, by_bottom, by_top, arcade.color.BLACK)
-            arcade.draw_lrbt_rectangle_outline(bx_left, bx_right, by_bottom, by_top, outline_color, 2)
-            arcade.draw_text(option, (bx_left + bx_right)/2, box_center_y - 8, arcade.color.WHITE, 16, anchor_x="center")
-
-
+            for i, option in enumerate(self.popup_options):
+                cx_button = start_x + i * (box_w + spacing) + box_w / 2
+                self.draw_button(cx_button, box_center_y, box_w, box_h, option, highlighted=(i == self.menu_index))
+        
+    
     def draw_fight_buttons(self):
         screen_width, screen_height = self.window.get_size()
         cx = screen_width / 2
@@ -263,16 +378,9 @@ class MainScreen(arcade.View):
         spacing = 20
         start_x = cx - (len(buttons) * box_w + (len(buttons) - 1) * spacing)/2
         for i, option in enumerate(buttons):
-            bx_left = start_x + i * (box_w + spacing)
-            bx_right = bx_left + box_w
-            by_top = cy + h/2 - 10
-            by_bottom = cy - h/2 + 10
-
-            outline_color = arcade.color.YELLOW if i == self.fight_menu_index else arcade.color.RED
-            arcade.draw_lrbt_rectangle_filled(bx_left, bx_right, by_bottom, by_top, arcade.color.BLACK)
-            arcade.draw_lrbt_rectangle_outline(bx_left, bx_right, by_bottom, by_top, outline_color, 2)
-            arcade.draw_text(option, (bx_left+bx_right)/2, cy-8, arcade.color.WHITE, 16, anchor_x="center")
-
+            cx_button = start_x + i * (box_w + spacing) + box_w / 2
+            self.draw_button(cx_button, cy, box_w, h - 20, option, highlighted=(i == self.fight_menu_index))
+            
     
     def draw_loot_popup(self):
         """Draws the loot popup at the bottom of the screen."""
@@ -281,10 +389,7 @@ class MainScreen(arcade.View):
 
         cx = self.window.width / 2
         cy = 100
-        w, h = 400, 60
-        arcade.draw_lrbt_rectangle_filled(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.BLACK)
-        arcade.draw_lrbt_rectangle_outline(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.YELLOW, 2)
-        arcade.draw_text(self.loot_popup_text, cx, cy - 8, arcade.color.WHITE, 16, anchor_x="center")
+        self.draw_button(cx, cy, 400, 60, self.loot_popup_text)
 
     
     def on_draw(self):
@@ -338,217 +443,20 @@ class MainScreen(arcade.View):
         
         # --- Draw status popup if open
         if self.popup_state is not None:
-            cx = screen_width / 2
-            cy = screen_height / 2 + 40  # bump stats box a little higher
-            w = 400
-            h = 220
-
-            # ========== BIG STATS WINDOW ==========
-            # black fill
-            arcade.draw_lrbt_rectangle_filled(
-                left=cx - w / 2,
-                right=cx + w / 2,
-                top=cy + h / 2,
-                bottom=cy - h / 2,
-                color=arcade.color.BLACK,
-            )
-
-            # red outline
-            arcade.draw_lrbt_rectangle_outline(
-                left=cx - w / 2,
-                right=cx + w / 2,
-                top=cy + h / 2,
-                bottom=cy - h / 2,
-                color=arcade.color.RED,
-                border_width=3,
-            )
-
             # If status popup, draw stats text
             if self.popup_state == "status":
-                stats_lines = [
-                    f"Name: {self.character.name}",
-                    f"Status: {self.character.title}",
-                    f"HP: {self.character.hp}/{self.character.max_hp}",
-                    f"MP: {self.character.mp}/{self.character.max_mp}",
-                    f"ATK: {self.character.atk} | DEF: {self.character.defense} | SPD: {self.character.spd}",
-                ]
-
-                for i, line in enumerate(stats_lines):
-                    arcade.draw_text(
-                        line,
-                        cx,
-                        cy + 70 - i * 25,
-                        arcade.color.WHITE,
-                        16,
-                        anchor_x="center"
-                    )
+                self.draw_status_popup()
+                        
+            elif self.popup_state == "equip":
+                self.draw_equip_popup()
                 
-            # ========== COMMAND BAR UNDER STATS WINDOW ==========
-            # Only draw the command bar for the status popup
-            # We draw a 2nd container UNDER the main stats box.
-            # Inside that container, 3 smaller selectable boxes go in a row.
-            if self.popup_state == "status":
-                bar_w = 420
-                bar_h = 100
-
-                bar_cy = cy - h / 2 - bar_h / 2 - 10  # 10px gap below stats box
-
-                # outer bar background + outline
-                arcade.draw_lrbt_rectangle_filled(
-                    left=cx - bar_w / 2,
-                    right=cx + bar_w / 2,
-                    top=bar_cy + bar_h / 2,
-                    bottom=bar_cy - bar_h / 2,
-                    color=arcade.color.BLACK,
-                )
-                arcade.draw_lrbt_rectangle_outline(
-                    left=cx - bar_w / 2,
-                    right=cx + bar_w / 2,
-                    top=bar_cy + bar_h / 2,
-                    bottom=bar_cy - bar_h / 2,
-                    color=arcade.color.RED,
-                    border_width=3,
-                )
-                
-                # draw buttons (status popup buttons)
-                num_buttons = len(self.popup_options)
-                box_w = 100
-                box_h = 60
-                spacing = 20
-                total_width = num_buttons * box_w + (num_buttons - 1) * spacing
-                start_x = cx - total_width / 2
-                box_center_y = bar_cy
-
-                for i, option in enumerate(self.popup_options):
-                    bx_left = start_x + i * (box_w + spacing)
-                    bx_right = bx_left + box_w
-                    by_top = box_center_y + box_h / 2
-                    by_bottom = box_center_y - box_h / 2
-
-                    outline_color = arcade.color.YELLOW if i == self.menu_index else arcade.color.RED
-
-                    arcade.draw_lrbt_rectangle_filled(
-                        left=bx_left, right=bx_right, top=by_top, bottom=by_bottom, color=arcade.color.BLACK
-                    )
-                    arcade.draw_lrbt_rectangle_outline(
-                        left=bx_left, right=bx_right, top=by_top, bottom=by_bottom, color=outline_color, border_width=2
-                    )
-                    arcade.draw_text(
-                        option,
-                        (bx_left + bx_right) / 2,
-                        box_center_y - 8,
-                        arcade.color.WHITE,
-                        16,
-                        anchor_x="center"
-                    )
-                
-            # Draw button (reusable for equip or items)
-            else:
-                # Draw equipment info when in equip menu
-                if self.popup_state == "equip":
-                    equip_lines = [
-                        f"{self.character.equipment['Armor'][0]}: + {self.character.equipment['Armor'][1]} DEF",
-                        f"{self.character.equipment['Weapon'][0]}: + {self.character.equipment['Weapon'][1]} ATK",
-                    ]
-                    for i, line in enumerate(equip_lines):
-                        arcade.draw_text(
-                            line,
-                            cx,
-                            cy + 40 - i * 30,
-                            arcade.color.WHITE,
-                            16,
-                            anchor_x="center"
-                        )
-                
-                if self.popup_state == "Item":
-                    equip_lines = [
-                        f"{self.character.items['HP Potion'][0]}: {self.character.items['HP Potion'][1]}",
-                        f"{self.character.items['MP Potion'][0]}: {self.character.items['MP Potion'][1]}",
-                    ]
-                    for i, line in enumerate(equip_lines):
-                        arcade.draw_text(
-                            line,
-                            cx,
-                            cy + 40 - i * 30,
-                            arcade.color.WHITE,
-                            16,
-                            anchor_x="center"
-                        )
-                
-                num_buttons = len(self.popup_options)
-                if num_buttons > 0:
-                    box_w = 200 if num_buttons == 1 else 100
-                    box_h = 60
-                    spacing = 20 if num_buttons > 1 else 0
-                    total_width = num_buttons * box_w + (num_buttons - 1) * spacing
-                    start_x = cx - total_width / 2
-                    box_center_y = cy - h / 2 + 50
-
-                    for i, option in enumerate(self.popup_options):
-                        bx_left = start_x + i * (box_w + spacing)
-                        bx_right = bx_left + box_w
-                        by_top = box_center_y + box_h / 2
-                        by_bottom = box_center_y - box_h / 2
-
-                        outline_color = arcade.color.YELLOW if i == self.menu_index else arcade.color.RED
-
-
-                        # inner fill
-                        arcade.draw_lrbt_rectangle_filled(
-                            left=bx_left,
-                            right=bx_right,
-                            top=by_top,
-                            bottom=by_bottom,
-                            color=arcade.color.BLACK
-                        )
-
-                        # outline
-                        arcade.draw_lrbt_rectangle_outline(
-                            left=bx_left,
-                            right=bx_right,
-                            top=by_top,
-                            bottom=by_bottom,
-                            color=outline_color,
-                            border_width=2
-                        )
-
-                        # text label
-                        arcade.Text(
-                            option,
-                            (bx_left + bx_right) / 2,
-                            box_center_y - 8,
-                            arcade.color.WHITE,
-                            16,
-                            anchor_x="center"
-                        ).draw()
+            elif self.popup_state == "Item":
+                self.draw_item_popup()
                         
         # --- Show loot/investigation popup (if active) ---
         if self.loot_popup_state == "loot":
-            cx = self.window.width / 2
-            cy = 100  # position near bottom of screen
-            w = 400
-            h = 60
+            self.draw_loot_popup()
 
-            # Background box
-            arcade.draw_lrbt_rectangle_filled(
-                left=cx - w/2, right=cx + w/2,
-                top=cy + h/2, bottom=cy - h/2,
-                color=arcade.color.BLACK
-            )
-            arcade.draw_lrbt_rectangle_outline(
-                left=cx - w/2, right=cx + w/2,
-                top=cy + h/2, bottom=cy - h/2,
-                color=arcade.color.YELLOW, border_width=2
-            )
-
-            # Text message
-            arcade.draw_text(
-                self.loot_popup_text,
-                cx, cy - 8,
-                arcade.color.WHITE,
-                16,
-                anchor_x="center"
-            )
             
         # Battle Scene
         if self.in_fight:
@@ -575,7 +483,7 @@ class MainScreen(arcade.View):
             
              # --- Draw item popup on top if active ---
             if self.popup_state == "Item":
-                self.draw_popup_item_menu()   # Draws the Item menu above everything
+                self.draw_item_popup()   # Draws the Item menu above everything
 
             # --- Draw fight buttons only if item menu is not active ---
             else:
@@ -583,6 +491,7 @@ class MainScreen(arcade.View):
                 
             # --- Draw loot popup if active ---
             self.draw_loot_popup()
+            
 
     def generate_Item(self):
         items = []
