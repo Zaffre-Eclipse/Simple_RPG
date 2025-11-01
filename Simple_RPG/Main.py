@@ -24,8 +24,8 @@ class IntroView(arcade.View):
         # Fade variables
         self.bg_alpha = 0       # for image fade
         self.text_alpha = 0     # for text fade
-        self.fade_speed = 3
-        self.text_delay = 60    # frames before text fades in
+        self.fade_speed = 4
+        self.text_delay = 30    # frames before text fades in
         self.frame_count = 0
         
         self.is_fading_out = False  # Tracks if the intro is currently fading out
@@ -87,7 +87,7 @@ class IntroView(arcade.View):
         
         # --- Fade out sequence ---
         elif self.is_fading_out:
-            self.fade_out_alpha += 200 * delta_time
+            self.fade_out_alpha += 300 * delta_time
             if self.fade_out_alpha >= 255:
                 self.fade_out_alpha = 255
                 # Once fade is complete, transition to MainScreen
