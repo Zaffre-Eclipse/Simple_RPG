@@ -121,8 +121,8 @@ class MainScreen(arcade.View):
         
         self.bg_alpha = 0       # for image fade
         self.text_alpha = 0     # for text fade
-        self.fade_speed_bg = 300
-        self.fade_speed_text = 300
+        self.fade_speed_bg = 500
+        self.fade_speed_text = 500
         self.text_delay = 1    # Seconds before text fades in
         self.frame_count = 0
         self.text_timer = 0.0   # elapsed time since fade started
@@ -146,25 +146,79 @@ class MainScreen(arcade.View):
         self.in_fight = False       # Are we currently in a fight?
         self.fight_enemy = None     # Optional: enemy sprite / data
         self.fight_alpha = 0        # Fade for room background during fight
-        self.fight_fade_speed = 300
+        self.fight_fade_speed = 500
         self.fight_text_alpha = 0
         
         # cache for current room background
+        self.room_textures = {}  # key: art_title, value: arcade.Texture
         self.room_texture = None
-        
+                
         # Create an enemy list
         self.enemies =[Necromancer()]
         self.fight_sprites = arcade.SpriteList()
-
+        
+        self.turn = "player"
         
         # Tracks which fight button is highlighted
         self.fight_menu_index = 0
         self.fight_buttons = ["Attack", "Items"]
+        
+        self.player_display_hp = self.character.hp
+        
+        # GAME OVER logic
+        self.game_over = False
+        self.game_over_menu_index = 0
+        self.game_over_options = ["Restart", "Quit"]
 
     
     def on_show(self):
         arcade.set_background_color(arcade.color.BLACK)
     
+    
+    def restart_game(self):
+        """Reset the game to initial state."""
+        # Reset character
+        self.character.reset()
+        
+        # Reset maze (mark all rooms unvisited except start)
+        for room, (neighbors, _, looted) in self.maze.items():
+            visited = (room == "Start")
+            self.maze[room] = (neighbors, visited, False)
+
+        # Reset connections
+        for conn_label in self.connections:
+            visited, data = self.connections[conn_label]
+            self.connections[conn_label] = (False, data)
+            
+        # Reset minimap
+        self.minimap = MiniMap(self.character, self.maze, self.connections)
+
+
+        # Reset fight state
+        self.in_fight = False
+        self.fight_enemy = None
+        self.fight_sprites = arcade.SpriteList()
+        self.turn = "player"
+        
+        # Reset popups
+        self.popup_state = None
+        self.loot_popup_state = None
+
+        # Reset fade
+        self.bg_alpha = 0
+        self.text_alpha = 0
+        self.fade_in_complete = False
+        
+        # Reset Game Over flag
+        self.game_over = False
+        self.game_over_menu_index = 0
+        
+        # Reset Hp bars
+        self.player_display_hp = self.character.hp
+        self.current_enemy_display_hp = 0
+
+
+
     
     def load_enemy_sprite(self, enemy_name, scale=3.0):
         """
@@ -205,6 +259,7 @@ class MainScreen(arcade.View):
 
         return sprite, frames
 
+
     def draw_enemy_hp_bar(self, bar_width=100, bar_height=10):
         enemy = self.current_enemy
         sprite = self.fight_enemy
@@ -226,9 +281,44 @@ class MainScreen(arcade.View):
         # Draw background bar
         arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, arcade.color.DARK_GRAY)
         # Draw filled portion
-        arcade.draw_lrbt_rectangle_filled(left, left + filled_width, bottom, top, arcade.color.BLUE)
+        arcade.draw_lrbt_rectangle_filled(left, left + filled_width, bottom, top, arcade.color.GREEN)
         # Outline
         arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, arcade.color.WHITE, 2)
+
+
+    def draw_player_hp_bar(self, bar_width=100, bar_height=12):
+        player = self.character
+        if not player:
+            return
+
+        # --- Calculate HP ratio ---
+        fill_ratio = max(self.player_display_hp / player.max_hp, 0)
+        filled_width = bar_width * fill_ratio
+
+        # --- Position: just above the fight menu ---
+        screen_width, screen_height = self.window.get_size()
+        cx = screen_width / 2 - 70
+        cy = 60 + 30  # fight menu height (≈60) + gap
+
+        left = cx - bar_width / 2
+        right = cx + bar_width / 2
+        bottom = cy - bar_height / 2
+        top = cy + bar_height / 2
+
+        # --- Background bar ---
+        arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, arcade.color.DARK_GRAY)
+        
+        color = arcade.color.GREEN
+        arcade.draw_lrbt_rectangle_filled(left, left + filled_width, bottom, top, color)
+        # --- Outline ---
+        arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, arcade.color.WHITE, 2)
+
+        # --- Text label ---
+        hp_text = f"HP: {player.hp}/{player.max_hp}"
+        text_width = len(hp_text) * 7  # rough width estimate for spacing
+        text_x = left - text_width - 20  # small gap to left of bar
+        text_y = cy - (bar_height / 2)  # vertically centered
+        arcade.draw_text(hp_text, text_x, text_y, arcade.color.WHITE, 14, bold=True)
 
     
     def attack_enemy(self):
@@ -253,6 +343,79 @@ class MainScreen(arcade.View):
             self.in_fight = False  # End fight
             self.fight_enemy.visible = False
             self.fight_sprites = arcade.SpriteList()
+            return
+
+        # End player turn and prepare enemy's turn
+        self.turn = "enemy"
+        self.enemy_action_timer = 0.0
+        
+        
+    def enemy_attack(self):
+        # Simple enemy AI — always attacks for now
+        damage = max(0, self.current_enemy.atk - self.character.defense)
+        self.character.hp = max(0, self.character.hp - damage)
+
+        self.loot_popup_text = f"{self.current_enemy.name} attacked! You took {damage} damage!"
+        self.loot_popup_state = "loot"
+        self.loot_popup_timer = 0.0
+
+        # Check if player is defeated
+        if self.character.hp <= 0:
+            self.loot_popup_text = "You were defeated..."
+            self.in_fight = False
+            self.fight_enemy.visible = False
+            self.fight_sprites = arcade.SpriteList()
+            return
+
+        # Switch back to player's turn
+        self.turn = "player"
+        
+        
+    def close_item_menu(self):
+        self.popup_state = None
+        self.item_menu_index = 0
+
+
+    def draw_game_over(self):
+        """Draw the Game Over screen with a bordered panel for buttons."""
+        screen_width, screen_height = self.window.get_size()
+
+        # Full screen black overlay
+        arcade.draw_lrbt_rectangle_filled(0, screen_width, 0, screen_height, arcade.color.BLACK)
+        
+        # Game over text
+        arcade.draw_text(
+            "GAME OVER",
+            screen_width / 2,
+            screen_height / 2 + 50,
+            arcade.color.RED,
+            40,
+            anchor_x="center",
+            anchor_y="center",
+            bold=True
+        )
+        
+        # Panel for buttons
+        panel_height = 80
+        panel_width = 400
+        panel_y = panel_height / 2 + 30  # 30 px above bottom
+        
+        # Draw panel (filled + border)
+        self.draw_button(
+            screen_width / 2, panel_y, panel_width, panel_height,
+            fill_color=arcade.color.BLACK, outline_color=arcade.color.RED
+        )
+        
+        # Draw buttons inside panel
+        spacing = 20
+        button_width = 150
+        button_height = 50
+        total_width = len(self.game_over_options) * button_width + (len(self.game_over_options)-1) * spacing
+        start_x = (screen_width - total_width) / 2
+        for i, option in enumerate(self.game_over_options):
+            cx = start_x + i * (button_width + spacing) + button_width / 2
+            highlighted = (i == self.game_over_menu_index)
+            self.draw_button(cx, panel_y, button_width, button_height, option, highlighted=highlighted)
 
     
     @staticmethod
@@ -419,19 +582,20 @@ class MainScreen(arcade.View):
     def draw_fight_buttons(self):
         screen_width, screen_height = self.window.get_size()
         cx = screen_width / 2
-        h = 100
+        h = 60
         cy = h / 2 + 10
         w = 400
         arcade.draw_lrbt_rectangle_filled(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.BLACK)
         arcade.draw_lrbt_rectangle_outline(cx - w/2, cx + w/2, cy - h/2, cy + h/2, arcade.color.RED, 3)
 
         buttons = ["Attack", "Items"]
-        box_w = 150
+        box_w = 120
+        box_h = h - 20
         spacing = 20
         start_x = cx - (len(buttons) * box_w + (len(buttons) - 1) * spacing)/2
         for i, option in enumerate(buttons):
             cx_button = start_x + i * (box_w + spacing) + box_w / 2
-            self.draw_button(cx_button, cy, box_w, h - 20, option, highlighted=(i == self.fight_menu_index))
+            self.draw_button(cx_button, cy, box_w, box_h, option, highlighted=(i == self.fight_menu_index))
             
     
     def draw_loot_popup(self):
@@ -440,8 +604,8 @@ class MainScreen(arcade.View):
             return
 
         cx = self.window.width / 2
-        cy = 100
-        self.draw_button(cx, cy, 400, 60, self.loot_popup_text)
+        cy = 130
+        self.draw_button(cx, cy, 400, 50, self.loot_popup_text)
 
     
     def on_draw(self):
@@ -449,12 +613,22 @@ class MainScreen(arcade.View):
         
         screen_width, screen_height = self.window.get_size()
         
+        if self.game_over:
+            self.draw_game_over()
+            return
+        
         # Draw room background
         art_title = "_".join(option for _, option, _ in self.maze[self.character.currentPosition][0] if option != "Backward")
         if art_title == "":
             art_title = "Backward"
-        if (not hasattr(self, "room_texture") or self.room_texture is None):
-            self.room_texture = arcade.load_texture(f"Simple_RPG/Art/Room_Backgrounds/{art_title}.png")
+        
+        if art_title not in self.room_textures:
+            # Load texture only if not cached
+            self.room_textures[art_title] = arcade.load_texture(
+                f"Simple_RPG/Art/Room_Backgrounds/{art_title}.png"
+            )
+        self.room_texture = self.room_textures[art_title]
+        
         # Create a rectangle covering the whole screen
         rect = Rect(
             left=0,
@@ -536,6 +710,9 @@ class MainScreen(arcade.View):
             # Draw HP bar above Necromancer
             self.draw_enemy_hp_bar()
             
+            # Draw **player HP bar above fight menu**
+            self.draw_player_hp_bar()
+            
              # --- Draw item popup on top if active ---
             if self.popup_state == "Item":
                 self.draw_item_popup()   # Draws the Item menu above everything
@@ -557,17 +734,22 @@ class MainScreen(arcade.View):
         if num == 1 or num == 2:
             items.append("MP Potion")
         return items
-    
+
     
     def try_fight(self):
         chance = 1.0  # 30% chance for a fight
         if random.random() < chance:
             self.start_fight()
+    
             
     def start_fight(self):
         self.in_fight = True
         self.fight_alpha = 0       # fade out current room
         self.fight_text_alpha = 0
+        
+        self.enemy_action_timer = 0.0  # delay before enemy acts
+        self.enemy_action_delay = 2.0  # seconds between turns
+
         
         # Randomly pick an enemy
         enemy_index = 0  # right now always 0, later random.randint(0, len(self.enemies)-1)
@@ -593,6 +775,13 @@ class MainScreen(arcade.View):
         # Clear bottom options
         self.popup_state = None
         self.loot_popup_state = None
+        
+        # --- Determine who goes first ---
+        # --- Determine turn order based on SPD ---
+        if self.character.spd > self.current_enemy.spd:
+            self.turn = "player"
+        else:
+            self.turn = "enemy"  # enemy goes first if tie or faster
         
         
     def open_item_menu(self):
@@ -627,12 +816,32 @@ class MainScreen(arcade.View):
         # Show the loot popup in battle
         self.loot_popup_state = "loot"
         self.loot_popup_timer = 0.0
+        
+        # --- Close item menu ---
+        self.close_item_menu()  # Make sure this hides the item popup/menu
+        
+        self.turn = "enemy"
+        self.enemy_action_timer = 0.0
 
 
     def on_key_press(self, key, modifiers):
         # Only allow input if fade-in is complete
         if not self.fade_in_complete:
             return
+        
+        # --- Game Over menu navigation ---
+        if self.game_over:
+            if key == arcade.key.RIGHT:
+                self.game_over_menu_index = (self.game_over_menu_index + 1) % len(self.game_over_options)
+            elif key == arcade.key.LEFT:
+                self.game_over_menu_index = (self.game_over_menu_index - 1) % len(self.game_over_options)
+            elif key == arcade.key.ENTER:
+                selected = self.game_over_options[self.game_over_menu_index]
+                if selected == "Restart":
+                    self.restart_game()
+                elif selected == "Quit":
+                    arcade.close_window()
+            return  # Skip all other inputs when game over
 
         # --- Popup navigation (overworld or battle) ---
         if self.popup_state is not None:
@@ -666,7 +875,7 @@ class MainScreen(arcade.View):
             return  # Skip other inputs while popup is open
 
         # --- Battle menu navigation (not in popup) ---
-        if self.in_fight:
+        if self.in_fight and self.turn == "player":
             if key == arcade.key.RIGHT:
                 self.fight_menu_index = (self.fight_menu_index + 1) % len(self.fight_buttons)
             elif key == arcade.key.LEFT:
@@ -753,6 +962,22 @@ class MainScreen(arcade.View):
     
     def on_update(self, delta_time: float):
         """Update fade animation each frame."""
+        
+        # --- Smooth PLAYER HP bar update ---
+        if hasattr(self, "player_display_hp") and hasattr(self, "character"):
+            diff = self.player_display_hp - self.character.hp
+            if abs(diff) > 0.1:
+                self.player_display_hp -= diff * min(1, 5 * delta_time)
+            else:
+                self.player_display_hp = self.character.hp
+        
+        # --- Check for Game Over after HP animation ---
+        if self.player_display_hp <= 0 and not getattr(self, "game_over", False):
+            self.character.hp = 0
+            self.game_over = True
+            self.loot_popup_state = None
+            self.in_fight = False
+        
         # --- Fade in room background ---
         if self.bg_alpha < 255:
             self.bg_alpha += self.fade_speed_bg * delta_time
@@ -779,14 +1004,16 @@ class MainScreen(arcade.View):
         # --- Battle Fading ---     
         if self.in_fight:
             # Smooth HP bar update
-            if self.in_fight and self.current_enemy:
+            if self.current_enemy:
                 diff = self.current_enemy_display_hp - self.current_enemy.hp
                 if abs(diff) > 0.1:  # small threshold to prevent jitter
                     # Reduce by a fraction of the difference per frame for smoothness
                     self.current_enemy_display_hp -= diff * min(1, 5 * delta_time)
                 else:
                     self.current_enemy_display_hp = self.current_enemy.hp
-            
+
+
+            # --- Fade in fight visuals ---
             if self.fight_alpha < 255:
                 self.fight_alpha += self.fight_fade_speed * delta_time
                 if self.fight_alpha > 255:
@@ -795,4 +1022,10 @@ class MainScreen(arcade.View):
                 self.fight_text_alpha += self.fight_fade_speed * delta_time
                 if self.fight_text_alpha > 255:
                     self.fight_text_alpha = 255
+            
+            if self.in_fight and self.turn == "enemy":
+                self.enemy_action_timer += delta_time
+                if self.enemy_action_timer >= self.enemy_action_delay:
+                    self.enemy_attack()
+
                     
