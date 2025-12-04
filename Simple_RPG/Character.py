@@ -23,10 +23,20 @@ class Character:
                      }
         
     def pickup(self, name:str):
+        '''
+        Picks up an item.
+
+        Args:
+            name: The name of the item.
+        '''
         item_name, amount = self.items[name]   
         self.items[name] = (item_name, amount+1)
         
     def reset(self):
+        '''
+        Resets the character to the start position and all its attributes.
+
+        '''
         self.currentPosition = "Start"
         
         # --- Status Variables ---

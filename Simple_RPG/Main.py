@@ -7,6 +7,22 @@ SCREEN_HEIGHT = 600
 SCREEN_TITLE = "CRYPTID: Red Archon"
 
 class IntroView(arcade.View):
+    '''
+    IntroView class for the intro screen.
+
+    Attributes:
+        image_sprite: The sprite for the image.
+        sprite_list: The list of sprites.
+        bg_alpha: The alpha value for the background.
+        text_alpha: The alpha value for the text.
+        fade_speed: The speed of the fade.
+        text_delay: The delay before the text fades in.
+        frame_count: The current frame count.
+        is_fading_out: Tracks if the intro is currently fading out.
+        fade_out_alpha: The alpha value for the overlay during fade-out.
+        lines: The lines of text to display.
+        sound: The sound to play.
+    ''' 
     def __init__(self):
         super().__init__()
         # Load the image as a sprite
@@ -50,6 +66,10 @@ class IntroView(arcade.View):
         arcade.set_background_color(arcade.color.BLACK)
 
     def on_draw(self):
+        '''
+        Draws the intro screen.
+
+        '''
         self.clear()
 
         # Fade-in image
@@ -77,6 +97,12 @@ class IntroView(arcade.View):
             )
 
     def on_update(self, delta_time):
+        '''
+        Updates the intro screen.
+
+        Args:
+            delta_time: The time since the last update.
+        '''
         self.frame_count += 1
         # --- Fade in sequence ---
         if not self.is_fading_out:
@@ -97,11 +123,24 @@ class IntroView(arcade.View):
                 self.window.show_view(main_view)
 
     def on_key_press(self, key, modifiers):
+        '''
+        Handles the key press event.
+
+        Args:
+            key: The key pressed.
+        '''
         if key == arcade.key.Z and self.text_alpha >= 255 and not self.is_fading_out:
             self.is_fading_out = True
 
 # --- Maze setup (same as before) ---
 def create_maze_data():
+    '''
+    Creates the maze data.
+
+    Returns:
+        maze: The maze data.
+        connections: The connections data.
+    '''
     connections = {
         "A": (False, ("Start", "Room 2")),
         "B": (False, ("Room 2", "Room 3")),
