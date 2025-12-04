@@ -1,0 +1,12 @@
+class Necromancer:
+    
+    def __init__(self):
+        self.currentPosition = "Start"
+            
+        # --- Status Variables ---
+        self.name = "Necromancer"
+        self.hp = 30
+        self.max_hp = 30
+        self.atk = 5
+        self.defense = 5
+        self.spd = 11
