@@ -1,5 +1,5 @@
 # CRYPTID: Red Archon
-## Welcome to your first day of training...
+*Welcome to your first day of training...*
 ---
 ### File Structure
 ### Instructions
