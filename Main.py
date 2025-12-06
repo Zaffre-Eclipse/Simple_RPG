@@ -27,7 +27,7 @@ class IntroView(arcade.View):
     def __init__(self):
         super().__init__()
         # Load the image as a sprite
-        self.image_sprite = arcade.Sprite("Simple_RPG/Art/PAWN.png")
+        self.image_sprite = arcade.Sprite("Art/PAWN.png")
 
         # Position near bottom, under text
         self.image_sprite.center_x = SCREEN_WIDTH / 2
@@ -59,7 +59,7 @@ class IntroView(arcade.View):
         ]
         
         # Load intro/exploration music
-        self.sound = arcade.load_sound("Simple_RPG/Music/Forest_Carnival.wav")
+        self.sound = arcade.load_sound("Music/Forest_Carnival.wav")
         # Play and loop intro/exploration music
         arcade.play_sound(self.sound, loop=True)
 

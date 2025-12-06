@@ -90,7 +90,9 @@ class MiniMap:
                 room_y = oy + room_y * SCALE
 
                 for target, dir_name, conn_label in neighbors:
-                    if conn_label in self.connections and self.connections[conn_label][0] and conn_label not in drawn_connections:
+                    # Draw connection if both rooms are visited (not just if connection is visited)
+                    target_visited = self.maze.get(target, (None, False, False))[1]
+                    if target_visited and conn_label not in drawn_connections:
                         target_x, target_y = self.positions[target]
                         target_x = ox + target_x * SCALE
                         target_y = oy + target_y * SCALE
@@ -125,11 +127,17 @@ class MiniMap:
                 x, y = self.positions[room]
                 x = ox + x * SCALE
                 y = oy + y * SCALE
-                if room == self.character.currentPosition: color = visited_color 
-                elif room == "End": color = end_color
-                elif looted == True: color = looted_color
-                else: color = unvisited_color
-                arcade.draw_lbwh_rectangle_outline(x, y, ROOM_WIDTH, ROOM_HEIGHT, color, 2)
+                
+                # Determine color: current position takes priority, then End, then looted, then visited
+                if room == self.character.currentPosition: 
+                    color = visited_color  # Yellow for current position
+                elif room == "End": 
+                    color = end_color  # Red for End room
+                elif looted: 
+                    color = looted_color  # Green for looted rooms
+                else: 
+                    color = unvisited_color  # Blue for visited but not looted
+                
 
 
 # --- MainScreen as a View ---
@@ -286,7 +294,7 @@ class MainScreen(arcade.View):
         Loads an enemy sprite and splits its sprite sheet into frames.
         Returns a tuple: (arcade.Sprite, list_of_frames)
         """
-        sheet_path = f"Simple_RPG/Art/Enemies/{enemy_name}.png"
+        sheet_path = f"Art/Enemies/{enemy_name}.png"
         frame_width = 160
         frame_height = 128
         columns = 17
@@ -693,7 +701,7 @@ class MainScreen(arcade.View):
         if art_title not in self.room_textures:
             # Load texture only if not cached
             self.room_textures[art_title] = arcade.load_texture(
-                f"Simple_RPG/Art/Room_Backgrounds/{art_title}.png"
+                f"Art/Room_Backgrounds/{art_title}.png"
             )
         self.room_texture = self.room_textures[art_title]
         
