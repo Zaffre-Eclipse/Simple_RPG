@@ -8,7 +8,7 @@ class BattleScreen:
     and works together with the MainScreen class as well as the enemy classes
     It handles things like turn orders, damage caluclations, fighting animations
     and some music transitioning
-    Anner, Tiffany, Aexandra
+    Anner, Tiffany, Alexandra
     """
 
     def __init__(self, main):
@@ -1098,4 +1098,5 @@ class BattleScreen:
             self.main.fight_buttons_visible = True
             self.main.hp_bar_visible = True
             self.main.hp_label_visible = True
+
             self.turn = "player"
