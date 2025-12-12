@@ -55,7 +55,7 @@ Group Project/
 ## Prerequisites
 
 - **Python 3.x** (Python 3.7 or higher recommended)
-- **Arcade Library** - Python game development library
+- **Arcade Library 3.3** - Python game development library
 - **PIL (Pillow)** - Image processing library (for sprite animations)
 
 ## Installation
