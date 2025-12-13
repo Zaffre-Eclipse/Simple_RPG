@@ -19,9 +19,12 @@ class NightBorne:
 
     _cached_frames = None  # only load once
 
-    def __init__(self):
-        """This is the class setrup"""
+    def __init__(self, main):
+        """This is the class setup"""
         
+        self.main = main
+        
+        # Boss stats
         self.name = "NightBorne"
         self.hp = 100
         self.max_hp = 100
@@ -161,6 +164,13 @@ class NightBorne:
         
     def heal(self):
         """This method handles the healing special move"""
+        
+        main = self.main
+        
+        # Play Replenished SFX
+        main.sfx_speed = random.uniform(1, 1.1)
+        main.current_sfx = arcade.play_sound(main.replenish_sfx, .6, 0, False, main.sfx_speed)
+        
         healed_hp = min(self.max_hp - self.hp, 40)
         self.hp += healed_hp
         return healed_hp
@@ -168,6 +178,13 @@ class NightBorne:
    
     def debuff(self, battle):
         """This method handles the debuff special move"""
+        
+        main = self.main
+        
+        # Play Debuff SFX
+        main.sfx_speed = random.uniform(1, 1.1)
+        main.current_sfx = arcade.play_sound(main.debuff_sfx, .6, 0, False, main.sfx_speed)
+        
         battle.overclock = 0
         battle.guard = 0
         battle.repair = 0
