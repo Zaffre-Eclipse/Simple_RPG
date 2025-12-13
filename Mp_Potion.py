@@ -3,6 +3,7 @@ class Mp_Potion():
     This is an Item class for an MP potion that heals the player
     Anner
     """
+    
     def __init__(self, character, name="MP Potion", description="Restores 20 MP.", restore=20):
         self.name = name
         self.description = description
