@@ -154,6 +154,7 @@ class MainScreen(arcade.View):
         self.text_delay = 0.5
         self.text_timer = 0
         self.fade_in_complete = False
+        self.loot_input_locked = False
 
         # UI POPUPS
         self.popup_state = None
@@ -208,7 +209,7 @@ class MainScreen(arcade.View):
 
         # ENEMY LISTS
         self.enemies = [Necromancer()]
-        self.boss_list = [NightBorne()]
+        self.boss_list = [NightBorne(self)]
 
         # SHOP
         self.shop_tutorial_seen = False
@@ -250,6 +251,14 @@ class MainScreen(arcade.View):
         self.button_sfx = arcade.load_sound("Simple_RPG/SFX/Button.wav")
         self.hit_sfx = arcade.load_sound("Simple_RPG/SFX/Hit.wav")
         self.necromancer_attack_sfx = arcade.load_sound("Simple_RPG/SFX/necromancer_attack.wav")
+        self.necromancer_death_sfx = arcade.load_sound("Simple_RPG/SFX/necromancer_Death.wav")
+        self.special_sfx = arcade.load_sound("Simple_RPG/SFX/Special.wav")
+        self.Buy_Drop_sfx = arcade.load_sound("Simple_RPG/SFX/Buy_Drop.wav")
+        self.replenish_sfx = arcade.load_sound("Simple_RPG/SFX/Replenish.wav")
+        self.boss_death_sfx = arcade.load_sound("Simple_RPG/SFX/Boss_Death.wav")
+        self.debuff_sfx = arcade.load_sound("Simple_RPG/SFX/Debuff.wav")
+        self.nightBorne_attack_sfx = arcade.load_sound("Simple_RPG/SFX/NightBorne_Attack.wav")
+
         
         # MISC STATE
         self.post_fight_cooldown = 1
@@ -737,6 +746,10 @@ class MainScreen(arcade.View):
         # Use HP potion
         if selected == "Use HP":
             if self.character.items.get("HP Potion", [None, 0])[1] > 0:
+                # Play Replenished SFX
+                self.sfx_speed = random.uniform(1, 1.1)
+                self.current_sfx = arcade.play_sound(self.replenish_sfx, .6, 0, False, self.sfx_speed)
+                
                 healed = self.hp_potion.use()
                 self.loot_popup_text = f"You used an HP Potion and restored {healed} HP!"
                 self.battle.start_hp_animation = True
@@ -746,6 +759,10 @@ class MainScreen(arcade.View):
         # Use MP potion
         elif selected == "Use MP":
             if self.character.items.get("MP Potion", [None, 0])[1] > 0:
+                # Play Replenished SFX
+                self.sfx_speed = random.uniform(1, 1.1)
+                self.current_sfx = arcade.play_sound(self.replenish_sfx, .6, 0, False, self.sfx_speed)
+                
                 restored = self.mp_potion.use()
                 self.loot_popup_text = f"You used an MP Potion and restored {restored} MP!"
                 self.battle.start_mp_animation = True
@@ -779,8 +796,13 @@ class MainScreen(arcade.View):
         if not self.fade_in_complete:
             return
         
+        if self.loot_popup_state == "loot" and self.loot_input_locked:
+            return
+        
+        # Only allow input if animation is complete
         if self.battle.enemy_death_animation_active:
             return
+        
         # Movement delay after finishing a fight
         if not self.in_fight and self.post_fight_cooldown > 0:
             return
@@ -886,6 +908,10 @@ class MainScreen(arcade.View):
                     gold_item_name, gold_amount = self.character.items["Gold"]
 
                     if gold_amount >= cost:
+                        
+                        # Play Buy/Drop SFX
+                        self.sfx_speed = random.uniform(1, 1.1)
+                        self.current_sfx = arcade.play_sound(self.Buy_Drop_sfx, .6, 0, False, self.sfx_speed)
                         # Deduct gold
                         self.character.items["Gold"] = (gold_item_name, gold_amount - cost)
 
@@ -949,6 +975,10 @@ class MainScreen(arcade.View):
                 if selected_option == "Exit":
                     self.popup_state = None
                     return
+                
+                # Play Special SFX
+                self.sfx_speed = random.uniform(1, 1.1)
+                self.current_sfx = arcade.play_sound(self.special_sfx, .6, 0, False, self.sfx_speed)
                 
                 # Handle ability
                 val = self.character.special.get(selected_option)
@@ -1123,8 +1153,7 @@ class MainScreen(arcade.View):
                     # Play Loot SFX
                     self.sfx_speed = random.uniform(1, 1.1)
                     self.current_sfx = arcade.play_sound(self.loot_sfx, 1.1, 0, False, self.sfx_speed)
-                    
-                    
+                        
                     # Item drop
                     loot = self.generate_Item()
                     for item in loot:
@@ -1142,10 +1171,13 @@ class MainScreen(arcade.View):
                     self.loot_popup_text = "You found: " + ", ".join(loot) if loot else "Nothing was found here."
                     self.loot_popup_state = "loot"
                     self.loot_popup_timer = 0.0
+                    self.loot_input_locked = True
+                    
                 else:
                     self.loot_popup_text = "This room has already been investigated."
                     self.loot_popup_state = "loot"
                     self.loot_popup_timer = 0.0
+                    self.loot_input_locked = True
 
             return
 
@@ -1245,9 +1277,17 @@ class MainScreen(arcade.View):
         if self.shop_transition_cooldown > 0:
             self.shop_transition_cooldown -= delta_time
         
+        # Make sure the player can't act while the room investigate popup is active
+        if self.loot_popup_state == "loot" and self.loot_input_locked:
+            self.loot_popup_timer += delta_time
+            if self.loot_popup_timer >= self.loot_popup_duration:
+                self.loot_popup_state = None
+                self.loot_input_locked = False
+                self.loot_popup_timer = 0.0
+        
+        # Ensure the player can't act immediately after a fight is over to avoid weird scenarios
         if not self.in_fight and self.post_fight_cooldown > 0:
             self.post_fight_cooldown -= delta_time
-            # ignore movement & fights until done
             return
 
         # Player attack logic
@@ -1333,10 +1373,16 @@ class MainScreen(arcade.View):
 
         # Auto-Repairs after enemy attack
         if self.battle.repair_pending and self.battle.repair > 0:
+            
             # wait until HP animation finishes
             if not self.battle.start_hp_animation and self.battle.turn == "player":
                 self.battle.repair_timer += delta_time
+                
                 if self.battle.repair_timer >= self.battle.repair_delay:
+                    # Play Replenished SFX
+                    self.sfx_speed = random.uniform(1, 1.1)
+                    self.current_sfx = arcade.play_sound(self.replenish_sfx, .6, 0, False, self.sfx_speed)
+                    
                     # Heal 10 HP
                     self.character.hp = min(self.character.max_hp, self.character.hp + 10)
                     # Triggers smooth HP bar update
