@@ -91,6 +91,8 @@ class BattleScreen:
         self.enemy_attack_animation_active = False
         self.dodge_rounds_remaining = 0
         self.dodge_total_damage = 0
+        self.dodge_result_timer = 0.0   # Counts how long the result has been shown
+        self.dodge_result_display_time = 1.0
 
         # DODGE QTE BAR
         self.dodge_bar_x = 0
@@ -139,7 +141,7 @@ class BattleScreen:
     def try_fight(self):
         """Try to trigger a fight based on RNG."""
         
-        chance = 1.0
+        chance = 0.3
         if random.random() < chance:
             if not self.main.battle_tutorial_seen:
                 self.main.popup_state = "battle_tutorial"
@@ -165,7 +167,7 @@ class BattleScreen:
         main.in_boss_fight = boss_fight
 
         # Transition music
-        main.music_volume = .35
+        main.music_volume = .20
         main.transition_music(main.battle_music)
 
         # Set fight state
@@ -597,7 +599,7 @@ class BattleScreen:
 
         # Regular enemy attack
         damage, self.guard = enemy.calc_damage(self.guard, self.character)
-
+        
         # Play enemy attack
         main.sfx_speed = random.uniform(1, 1.1)
         main.current_sfx = arcade.play_sound(main.necromancer_attack_sfx, .5, 0, False, main.sfx_speed)
@@ -660,13 +662,14 @@ class BattleScreen:
             self.overclock -= 1
 
         # If damage was dealt
-        if self.attack_total_damage > 0:   
-            # Play hit SFX
-            main.sfx_speed = random.uniform(1, 1.1)
-            main.current_sfx = arcade.play_sound(main.hit_sfx, .5, 0, False, main.sfx_speed)
-            
+        if self.attack_total_damage > 0:
             # Apply damage
-            enemy.hp = max(0, enemy.hp - self.attack_total_damage)
+            enemy.hp = max(0, enemy.hp - self.attack_total_damage)  
+            
+            # Play hit SFX
+            if enemy.hp > 0:
+                main.sfx_speed = random.uniform(1, 1.1)
+                main.current_sfx = arcade.play_sound(main.hit_sfx, .5, 0, False, main.sfx_speed)
 
             # Animate enemy HP bar
             self.start_enemy_hp_animation = True
@@ -705,6 +708,14 @@ class BattleScreen:
             main.enemy_action_timer = 0.0
             return
 
+        # Play enemy death SFX
+        if main.in_boss_fight:
+            main.sfx_speed = random.uniform(1, 1.1)
+            main.current_sfx = arcade.play_sound(main.boss_death_sfx, .5, 0, False, main.sfx_speed)
+        else:
+            main.sfx_speed = random.uniform(1, 1.1)
+            main.current_sfx = arcade.play_sound(main.necromancer_death_sfx, .5, 0, False, main.sfx_speed)
+            
         # Play enemy death animation
         self.enemy_death_frames = enemy.death_animation()
         self.enemy_death_index = 0
@@ -933,8 +944,10 @@ class BattleScreen:
             return
 
         # FINAL dodge round applies total damage
-        # Play boss attack animation
+        # Play boss attack animation and Boss_Attack SFX
         if not self.boss_attack_animation_played:
+            main.current_sfx = arcade.play_sound(main.nightBorne_attack_sfx, .6, 0, False, 1)
+            
             self.enemy_attack_frames = enemy.attack_animation()
             self.enemy_sprite_attack_animation_active = True
             self.boss_attack_animation_played = True
@@ -1044,6 +1057,10 @@ class BattleScreen:
                     if text == None:
                         main.loot_popup_text = f"The {main.current_enemy.name} died"
                     else:
+                        # Play Buy/Drop SFX
+                        main.sfx_speed = random.uniform(1, 1.1)
+                        main.current_sfx = arcade.play_sound(main.Buy_Drop_sfx, .6, 0, False, main.sfx_speed)
+                        
                         main.loot_popup_text = f"The {main.current_enemy.name} dropped an {text}"
 
                     main.loot_popup_state = "loot"
@@ -1053,8 +1070,10 @@ class BattleScreen:
                 # Set-up the win screen if it was a boss fight
                 else:
                     main.win = True
+                    main.in_boss_fight = False
                     main.popup_options = ["OK"]
                     main.menu_index = 0
+                    main.music_volume = .6
                     main.transition_music(main.win_music)
 
 
@@ -1098,5 +1117,4 @@ class BattleScreen:
             self.main.fight_buttons_visible = True
             self.main.hp_bar_visible = True
             self.main.hp_label_visible = True
-
             self.turn = "player"
