@@ -16,7 +16,7 @@ class Character:
         # Status Variables
         self.name = "PAWN"
         self.title = "Red Archon"
-        self.hp = 4
+        self.hp = 50
         self.mp = 50
         self.max_hp = 50
         self.max_mp = 50
