@@ -110,7 +110,7 @@ class Necromancer:
         
         loot = None
         num = random.randint(1,10)
-        if num == 1:
+        if num <= 2:
             loot = "HP Potion"
             character.pickup("HP Potion")
         return loot
