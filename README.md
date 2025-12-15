@@ -24,32 +24,27 @@ A turn-based RPG game built with Python and the Arcade library. Navigate through
 ## Project Structure
 
 ```
-Group Project/
-├── Simple_RPG/              # Main game version (most complete)
-│   ├── Art/                 # Game assets (sprites, backgrounds)
-│   │   ├── Attack/          # Attack animation assets
-│   │   ├── Dodge/           # Dodge QTE assets
-│   │   ├── Enemies/         # Enemy sprites
-│   │   └── Room_Backgrounds/# Room background images
-│   ├── Music/               # Background music files
-│   ├── SFX/                 # Sound effect files
-│   ├── Intro.py             # Game entry point and intro screen
-│   ├── MainScreen.py        # Main game view and overworld logic
-│   ├── BattleScreen.py      # Battle system and combat logic
-│   ├── Character.py         # Player character class
-│   ├── Necromancer.py       # Regular enemy class
-│   ├── NightBorne.py        # Boss enemy class
-│   ├── Hp_Potion.py         # HP potion item class
-│   ├── Mp_Potion.py         # MP potion item class
-│   ├── Potions.py           # Potion base class
-│   ├── ScreenChanger.py     # UI rendering and popup management
-│   └── Simple_RPG_Test.py  # Test file
-│
-├── Simple_And_Clean_RPG/    # Simplified version of the game
-│   └── README.md            # Version-specific documentation
-│
-└── Simple_RPG_old/          # Legacy version
-    └── README.md            # Version-specific documentation
+
+Simple_RPG/              
+   ├── Art/                 # Game assets (sprites, backgrounds)
+   │   ├── Attack/          # Attack animation assets
+   │   ├── Dodge/           # Dodge QTE assets
+   │   ├── Enemies/         # Enemy sprites
+   │   └── Room_Backgrounds/# Room background images
+   ├── Music/               # Background music files
+   ├── SFX/                 # Sound effect files
+   ├── Intro.py             # Game entry point and intro screen
+   ├── MainScreen.py        # Main game view and overworld logic
+   ├── BattleScreen.py      # Battle system and combat logic
+   ├── Character.py         # Player character class
+   ├── Necromancer.py       # Regular enemy class
+   ├── NightBorne.py        # Boss enemy class
+   ├── Hp_Potion.py         # HP potion item class
+   ├── Mp_Potion.py         # MP potion item class
+   ├── Potions.py           # Potion base class
+   ├── ScreenChanger.py     # UI rendering and popup management
+   └── Simple_RPG_Test.py  # Test file
+
 ```
 
 ## Prerequisites
@@ -69,32 +64,16 @@ Group Project/
    pip install arcade pillow
    ```
 
-   Or if you prefer using a requirements file, create one with:
-   ```
-   arcade
-   pillow
-   ```
-
-   Then install with:
-   ```
-   pip install -r requirements.txt
-   ```
 
 ## How to Run
 
-1. Open Command Prompt and navigate to the project directory
+1. Open Command Prompt and navigate to the directory containing the project directory
 2. Run the main game file:
 
    ```
    python Simple_RPG\Intro.py
    ```
 
-   Or from within the Simple_RPG directory:
-
-   ```
-   cd Simple_RPG
-   python Intro.py
-   ```
 
 ## Gameplay Instructions
 
